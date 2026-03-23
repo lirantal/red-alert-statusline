@@ -129,7 +129,7 @@ run_all() {
     echo "── Alert lifecycle ─────────────────────────────────────────────"
     render "alert active (0-60s)"        "$(state_missiles_2cities)"
     render "all clear (cat 13, <15s)"    "$(state_allclear)"
-    render "fade-out (60-70s elapsed)"   "$(state_fadeout)"
+    render "fade-out (60-70s elapsed)"    "$(state_fadeout)"
     render "silent (>70s elapsed)"       "$(state_silent)"
     echo ""
     echo "── City filtering (RED_ALERT_CITIES) ───────────────────────────"

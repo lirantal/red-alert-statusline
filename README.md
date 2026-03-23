@@ -32,10 +32,28 @@ Alert icon
 | 🔫 INFILTRATION | Category 7 | 60s |
 | ✅ ALL CLEAR | Category 13 — event concluded | 15s |
 | 🔔 DRILL | Categories 101–107 | 60s |
-| 🔕 No active alerts | Fade-out | 10s, then silent |
+| 🇮🇱 Pikud HaOref: all clear | Fade-out | 10s, then silent |
 
-**City cycling:** When more than 3 cities are affected, the statusline shows the count
-and cycles through the city names every 2 seconds as Claude responds.
+**City display — no filter set:**
+
+When `RED_ALERT_CITIES` is not set, all cities from the alert are shown using this strategy:
+
+- **3 or fewer cities** — displayed inline, separated by ` · `:
+  ```
+  🚀 MISSILES · תל אביב - מרכז העיר · רמת גן - מערב
+  ```
+- **More than 3 cities** — shows the total count and cycles through cities one at a time:
+  ```
+  🚀 MISSILES · 5 cities · תל אביב          ← one Claude response
+  🚀 MISSILES · 5 cities · רמת גן           ← next response, 2s later
+  🚀 MISSILES · 5 cities · חולון            ← next response after that
+  ```
+
+The cycling is time-based (no background timer needed): the script divides the current
+unix timestamp by 2 and takes `% city_count` to pick which city to display. Each time
+Claude responds and 2+ seconds have passed, the next city in rotation appears.
+
+**City display — filter set, no match:** the statusline shows nothing, as if there is no alert.
 
 **Pre-alert priority:** Category 14 pre-alerts (early warning before sirens) are shown
 first, above any other alert type. If no real alert (cat 1–7) follows within 20 minutes,
@@ -264,7 +282,7 @@ Event detected by daemon
         │ 15s elapsed (or 60s with no cat=13)
         ▼
   ┌─────────────────────────────────────────────────────────┐
-  │ fade-out window     → show 🔕 No active alerts for 10s  │
+  │ fade-out window     → show 🇮🇱 Pikud HaOref: all clear   │
   └─────────────────────────────────────────────────────────┘
         │ 10s elapsed
         ▼

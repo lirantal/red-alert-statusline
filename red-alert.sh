@@ -329,7 +329,7 @@ esac
 case "$CAT" in
     1|2|3|4|5|6|7)
         if [ "$LAST_SEEN_AGE" -ge 60 ] && [ "$LAST_SEEN_AGE" -lt 70 ]; then
-            printf '🔕 No active alerts'
+            printf '🇮🇱 Pikud HaOref: all clear'
             exit 0
         fi
         ;;
