@@ -4,9 +4,13 @@ A Claude Code statusline that shows real-time [Pikud HaOref](https://www.oref.or
 
 ```
 🚀 MISSILES · 5 cities · תל אביב - מרכז העיר
-⚠️  PRE-ALERT · נתניה · חדרה
+⚠️ PRE-ALERT · נתניה · חדרה
 ✅ ALL CLEAR · רמת גן
 ```
+
+Statusline in action:
+
+<img width="1274" height="742" alt="image" src="https://github.com/user-attachments/assets/dcbf7fc9-29a9-4425-ac26-b988ff81244d" />
 
 ---
 
