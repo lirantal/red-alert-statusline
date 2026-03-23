@@ -1,0 +1,12 @@
+lockfile_version: '1'
+generated_at: '2026-03-23T20:05:04.823424+00:00'
+apm_version: 0.8.4
+dependencies:
+- repo_url: lirantal/statusline-creator-skill
+  host: github.com
+  resolved_commit: 0ad95c2913a06c56b2d2c112e6c5c14369bc4f4a
+  package_type: apm_package
+  deployed_files:
+  - .claude/skills/statusline-creator
+  - .github/skills/statusline-creator
+  content_hash: sha256:dd4efdff528d06c4746d7a5995772f7e81d03a4b14a1ae299deca2aceec27a49

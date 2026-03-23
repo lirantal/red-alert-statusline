@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "WebFetch(domain:github.com)",
+      "WebSearch",
+      "WebFetch(domain:microsoft.github.io)",
+      "Bash(chmod:*)",
+      "Bash(bash red-alert.sh)",
+      "Bash(echo \"exit=$?utput_len=$#utput\")",
+      "Read(//Users/lirantal/projects/repos/red-alert-statusline/**)",
+      "Bash(~/.claude/settings.json.tmp)",
+      "Bash(mv ~/.claude/settings.json.tmp ~/.claude/settings.json)",
+      "Read(//Users/lirantal/.claude/**)"
+    ]
+  }
+}
