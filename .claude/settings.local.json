@@ -11,7 +11,13 @@
       "Read(//Users/lirantal/projects/repos/red-alert-statusline/**)",
       "Bash(~/.claude/settings.json.tmp)",
       "Bash(mv ~/.claude/settings.json.tmp ~/.claude/settings.json)",
-      "Read(//Users/lirantal/.claude/**)"
+      "Read(//Users/lirantal/.claude/**)",
+      "Bash(bash mock.sh)",
+      "Bash(bash mock.sh prealert)",
+      "Bash(bash mock.sh filter \"Beer Sheva\")",
+      "Bash(bash mock.sh filter \"רמת גן\")",
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
     ]
   }
 }

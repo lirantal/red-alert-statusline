@@ -113,17 +113,32 @@ All settings are environment variables. Set them in your shell profile or in the
 
 ### City filter examples
 
-```bash
-# English names (fuzzy-matched against Hebrew city database)
-export RED_ALERT_CITIES="Tel Aviv,Ramat Gan"
+When `RED_ALERT_CITIES` is set, the statusline is **silent** for alerts that don't
+affect your cities, and shows **only the matching cities** from an alert that does.
 
-# Hebrew names (direct substring match)
+```bash
+# Single city — English name
+export RED_ALERT_CITIES="Tel Aviv"
+
+# Multiple cities — comma-separated, no spaces around commas required
+export RED_ALERT_CITIES="Tel Aviv,Ramat Gan,Netanya"
+export RED_ALERT_CITIES="Tel Aviv, Ramat Gan, Netanya"   # spaces OK, they're trimmed
+
+# Hebrew names — direct substring match against the API's data[] array
 export RED_ALERT_CITIES="תל אביב,רמת גן"
 
-# Mixed
-export RED_ALERT_CITIES="Tel Aviv,חיפה"
+# Mixed English and Hebrew
+export RED_ALERT_CITIES="Tel Aviv,חיפה,Beer Sheva"
 
-# Via settings.json env block:
+# Zone/area name — matches all cities in that zone if they appear in the alert
+export RED_ALERT_CITIES="Gush Dan"   # won't work; use individual city names
+
+# Spelling variants — all of these resolve to the same Hebrew city (באר שבע)
+export RED_ALERT_CITIES="Beer Sheva"
+export RED_ALERT_CITIES="Beersheba"
+export RED_ALERT_CITIES="Beersheva"
+
+# Via ~/.claude/settings.json env block (persists across sessions):
 ```
 ```json
 {
@@ -137,38 +152,124 @@ export RED_ALERT_CITIES="Tel Aviv,חיפה"
 }
 ```
 
-**Matching logic:**
-1. Direct substring match (Hebrew input, or English that happens to appear in the city name)
-2. English → Hebrew lookup via a bundled table of ~70 major cities
-3. Word-level fuzzy: each word in your filter is checked against the city name
+**Important:** Alert city names from the API include district suffixes in Hebrew, e.g.:
+- `"תל אביב - מרכז העיר"` (Tel Aviv - City Center)
+- `"תל אביב - דרום העיר"` (Tel Aviv - South)
+- `"אשקלון - צפון"` (Ashkelon - North)
 
-If your city is not in the lookup table, use the Hebrew name directly (copy it from
-`cities.json` in [eladnava/pikud-haoref-api](https://github.com/eladnava/pikud-haoref-api)).
+Filtering by `"Tel Aviv"` or `"תל אביב"` matches **all Tel Aviv districts** because the
+match is substring-based.
+
+**Matching logic (applied in order, first match wins):**
+1. **Direct substring** — the filter term appears anywhere in the Hebrew city name
+2. **English → Hebrew lookup** — ~70 major cities with common spelling variants are
+   pre-mapped; the Hebrew value is then substring-matched
+3. **Word-level fuzzy** — each word in your filter (≥3 chars) is individually checked
+   against the city name, enabling partial matches
+
+If your city is not in the lookup table, use the Hebrew name directly (copy the `value`
+field from `cities.json` in [eladnava/pikud-haoref-api](https://github.com/eladnava/pikud-haoref-api)).
 
 ---
 
 ## How it works
 
-```
-red-alert.sh          red-alert-daemon.sh
-     │                        │
-     │  ensure running ──────>│  loop every 2s:
-     │                        │    curl oref.org.il/alerts.json
-     │                        │    parse cat/id/cities
-     │  read state ◄──────────│    write /tmp/red_alert_state.json (atomic)
-     │                        │
-     │  apply timing rules
-     │  filter cities
-     │  format output
-     ▼
-  statusline string → Claude Code status bar
+There are two scripts with distinct jobs:
+
+### `red-alert-daemon.sh` — the poller
+
+Runs permanently in the background. You never interact with it directly — `red-alert.sh`
+starts it automatically the first time Claude Code calls the statusline.
+
+What it does every 2 seconds:
+1. `curl` the official Pikud HaOref endpoint (`alerts.json`)
+2. Strip the UTF-8 BOM and NUL bytes that the API sometimes injects
+3. If the response contains a valid JSON alert, parse `cat` (category), `id`, `title`,
+   and `data` (the cities array)
+4. Update `/tmp/red_alert_state.json` **atomically** (write to a temp file, then `mv`)
+   so `red-alert.sh` never reads a half-written file
+
+Key behaviour: when the API returns **empty** (no active siren), the daemon does
+**nothing** — it leaves the last state untouched. The display script handles expiry.
+This is intentional: the live endpoint is a narrow snapshot that goes empty within
+seconds of a siren ending, but the threat window is 60+ seconds.
+
+State file written to `/tmp/red_alert_state.json`:
+```json
+{
+  "alert_id":         "134168709720000000",
+  "cat":              "1",
+  "title":            "ירי רקטות וטילים",
+  "cities":           ["תל אביב - מרכז העיר", "רמת גן - מערב"],
+  "last_seen_unix":   1711234567,
+  "pre_alert_active": false,
+  "pre_alert_time":   0,
+  "cleared_unix":     0
+}
 ```
 
-- `red-alert-daemon.sh` runs in the background (auto-started), polls every 2 seconds,
-  and writes state atomically to `/tmp/red_alert_state.json`.
-- `red-alert.sh` is called by Claude Code after every response. It reads the state
-  file and renders the appropriate display string instantly (no network call).
-- Daemon logs go to `/tmp/red_alert_daemon.log`.
+Daemon log: `/tmp/red_alert_daemon.log`
+
+### `red-alert.sh` — the statusline renderer
+
+Called by Claude Code after **every response**. Must return instantly (no network I/O).
+
+What it does:
+1. Checks if the daemon is running (by PID file); starts it in the background if not
+2. Reads `/tmp/red_alert_state.json` with a single `jq` call
+3. Computes how many seconds have passed since each event (`last_seen_unix`,
+   `pre_alert_time`, `cleared_unix`)
+4. Applies city filtering if `RED_ALERT_CITIES` is set
+5. Runs the state machine (pre-alert → all-clear → active → fade-out → silent)
+6. Prints the formatted string to stdout; Claude Code displays it in the status bar
+
+```
+red-alert.sh (called each response)      red-alert-daemon.sh (always running)
+        │                                          │
+        │── is daemon running? ──────────────────>│
+        │   no → start it in background           │  every 2s:
+        │                                         │  curl alerts.json
+        │                                         │  parse response
+        │<── read /tmp/red_alert_state.json ──────│  write state (atomic mv)
+        │
+        │   compute event ages
+        │   filter cities by RED_ALERT_CITIES
+        │   pick state: pre-alert / alert / clear / fade-out / silent
+        │   format city list (inline ≤3, cycling >3)
+        ▼
+  stdout → Claude Code status bar
+```
+
+### Alert timing state machine
+
+```
+Event detected by daemon
+        │
+        ▼
+  ┌─────────────────────────────────────────────────────────┐
+  │ cat=14 (pre-alert)  → show ⚠️  PRE-ALERT for 20 min     │  highest priority
+  │                        expires if no cat 1-7 follows    │
+  └─────────────────────────────────────────────────────────┘
+        │ superseded by real alert or 20 min elapsed
+        ▼
+  ┌─────────────────────────────────────────────────────────┐
+  │ cat=1-7 (active)    → show alert for 60s                │
+  │                        even after API goes empty        │
+  └─────────────────────────────────────────────────────────┘
+        │ cat=13 received
+        ▼
+  ┌─────────────────────────────────────────────────────────┐
+  │ cat=13 (all clear)  → show ✅ ALL CLEAR for 15s         │
+  └─────────────────────────────────────────────────────────┘
+        │ 15s elapsed (or 60s with no cat=13)
+        ▼
+  ┌─────────────────────────────────────────────────────────┐
+  │ fade-out window     → show 🔕 No active alerts for 10s  │
+  └─────────────────────────────────────────────────────────┘
+        │ 10s elapsed
+        ▼
+     silent (statusline shows nothing)
+```
 
 ---
 
