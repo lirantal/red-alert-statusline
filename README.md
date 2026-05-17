@@ -345,3 +345,7 @@ rm -f /tmp/red_alert_state.json /tmp/red_alert_daemon.pid
 kill $(cat /tmp/red_alert_daemon.pid 2>/dev/null) 2>/dev/null || true
 ```
 The daemon will restart and re-initialize on the next Claude response.
+
+## Contributing
+
+Please consult [CONTRIBUTING](./CONTRIBUTING.md) for guidelines on contributing to this project.
